@@ -20,7 +20,7 @@ contract Staking {
         token = IERC20(_token);
     }
 
-    mapping(address => Data) public stakeData;
+    mapping(address => Data[]) public stakeData;
 
     struct Data {
         uint amount;
@@ -32,23 +32,40 @@ contract Staking {
     function stake(uint _amount) external returns (bool) {
         require(_amount > 0, "invalid amount");
         token.transferFrom(msg.sender, address(this), _amount);
-        stakeData[msg.sender] = (Data({amount: _amount, startTime: block.timestamp, claimed: false}));
+        stakeData[msg.sender].push(Data({amount: _amount, startTime: block.timestamp, claimed: false}));
 
 
         return true;
     }
 
-    function withdraw() external returns (bool) {
-        require(stakeData[msg.sender].amount > 0, "you dont have any staked tokens");
-        require(!stakeData[msg.sender].claimed, "rewards already claimed");
-        require(block.timestamp > stakeData[msg.sender].startTime + lockTime, "30 days hasnt passed");
+    function withdraw(uint _stakeNumber) external returns (bool) {
+        Data storage staked = stakeData[msg.sender][_stakeNumber];
+        require(_stakeNumber < stakeData[msg.sender].length , "invalid index");
+        require(staked.amount > 0, "you dont have any staked tokens");
+        require(!staked.claimed, "rewards already claimed");
 
-        uint reward = (stakeData[msg.sender].amount * rewardRate) / 100;
-        uint withdrawable = reward + stakeData[msg.sender].amount;
-        stakeData[msg.sender].claimed = true;
 
-        token.transfer(msg.sender, withdrawable);
+        if (block.timestamp > staked.startTime + lockTime) {
+        uint reward = (staked.amount * rewardRate) / 100;
+        uint withdrawable = reward + staked.amount;
+        staked.claimed = true;
+        staked.amount = 0;
 
+        bool success = token.transfer(msg.sender, withdrawable);
+        require(success, "withdraw failed");
+        }
+
+        else {
+        uint penalty = (staked.amount * 10) /100;
+        uint total = staked.amount - penalty;
+
+        staked.claimed = true;
+        staked.amount = 0;
+
+        bool success = token.transfer(msg.sender, total);
+        require(success, "withdraw failed");
+
+        }
         return true;
         }
 }
