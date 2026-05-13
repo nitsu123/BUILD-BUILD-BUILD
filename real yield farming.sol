@@ -8,7 +8,6 @@ contract LendingDapp {
     address public owner;
     IERC20 public token;
     uint colPercentage = 50;
-    uint totalLiquidity;
 
     mapping(address => Position) public positions;
 
